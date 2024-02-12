@@ -2,6 +2,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:better_player/better_player.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
@@ -24,11 +25,25 @@ class _HomePagaeState extends State<HomePagae> {
   var listdata = [];
   var listsearch = [];
   bool _showsearchbox = false;
+  String urlname = '';
+  String tokenapi = '';
 
   @override
   void initState() {
-    OpenGPS();
+    _Loadsetting();
     super.initState();
+  }
+
+  void _Loadsetting() async {
+    String? BaseUrl = dotenv.env['BASE_URL'];
+    String? AUTH_TOPKEN = dotenv.env['AUTH_TOPKEN'];
+    setState(() {
+      urlname = BaseUrl.toString();
+      tokenapi = AUTH_TOPKEN.toString();
+    });
+    Future.delayed(Duration(milliseconds: 1200), () {
+      OpenGPS();
+    });
   }
 
   Future<bool> _handleLocationPermission() async {
@@ -102,11 +117,9 @@ class _HomePagaeState extends State<HomePagae> {
     var location = lat + ',' + long;
     try {
       dio.options.headers["content-type"] = "application/json";
-      dio.options.headers["auth-token"] = 'taocctv045649428';
-      var res = await dio
-          .get('https://teekhalink.com/cctv/searchcctvapp/' +
-              location.toString())
-          .then((value) => value);
+      dio.options.headers["auth-token"] = tokenapi;
+      var res =
+          await dio.get(urlname + location.toString()).then((value) => value);
       if (res.statusCode == 200) {
         List db = res.data;
         if (db.length == 0) {
@@ -155,7 +168,7 @@ class _HomePagaeState extends State<HomePagae> {
     PlayCCTV(context, listdata[index].name, listdata[index].url,
         listdata[index].detail);
 
-    print('play url is  : ' + listdata[index].url);
+    //print('play url is  : ' + listdata[index].url);
     try {
       BetterPlayerConfiguration betterPlayerConfiguration =
           BetterPlayerConfiguration(
@@ -192,7 +205,8 @@ class _HomePagaeState extends State<HomePagae> {
             child: IconButton(
                 onPressed: () {
                   //  Get.to(SearchPage());
-                  print('search page');
+                  _Loadsetting();
+                  // print('search page');
                 },
                 icon: Icon(Icons.favorite)),
           )
