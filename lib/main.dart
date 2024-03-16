@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:hexcolor/hexcolor.dart';
 import 'package:thailandhightwaycamerav1/home/HomePage.dart';
+import 'package:thailandhightwaycamerav1/maps/ShowMap.dart';
 import 'package:thailandhightwaycamerav1/page/SearchPage.dart';
 import 'package:thailandhightwaycamerav1/page/StremCctv.dart';
 
@@ -36,6 +37,7 @@ class MyApp extends StatelessWidget {
       getPages: [
         GetPage(name: '/search', page: () => SearchPage()),
         GetPage(name: '/strem', page: () => StramCctv()),
+        GetPage(name: '/showmap', page: () => ShowMaps()),
       ],
     );
   }

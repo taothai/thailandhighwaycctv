@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:app_settings/app_settings.dart';
 import 'package:better_player/better_player.dart';
 import 'package:dio/dio.dart';
@@ -6,6 +8,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:thailandhightwaycamerav1/maps/ShowMap.dart';
 import 'package:thailandhightwaycamerav1/menu/LeftMenu.dart';
 import 'package:thailandhightwaycamerav1/models/CctvModels.dart';
 import 'package:thailandhightwaycamerav1/page/SearchPage.dart';
@@ -27,12 +31,118 @@ class _HomePagaeState extends State<HomePagae> {
   bool _showsearchbox = false;
   String urlname = '';
   String tokenapi = '';
-
+  final scaffoldKey = GlobalKey<ScaffoldState>();
   @override
   void initState() {
     _Loadsetting();
+    loadAds();
     super.initState();
   }
+
+  // Ads zone
+  void loadAds() {
+    //  createInterstitialAd();
+    _loadBannerAd();
+    // int timeshowads = 5;
+    // Future.delayed(Duration(seconds: timeshowads), () {
+    //   showInterstitialAd();
+    //   print("Executed after 5 seconds");
+    // });
+  }
+
+  late BannerAd _bannerAd;
+  bool _isBannerAdReady = false;
+
+  void _loadBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: 'ca-app-pub-1546426480316306/8948013542',
+      request: AdRequest(),
+      size: AdSize.fullBanner,
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          print('banner loadd ! ');
+          setState(() {
+            _isBannerAdReady = true;
+          });
+        },
+        onAdFailedToLoad: (ad, err) {
+          _isBannerAdReady = false;
+          ad.dispose();
+        },
+      ),
+    );
+
+    _bannerAd.load();
+  }
+
+  String testDevice = 'YOUR_DEVICE_ID';
+  int maxFailedLoadAttempts = 3;
+  static final AdRequest request = AdRequest(
+    keywords: <String>['foo', 'bar'],
+    contentUrl: 'http://foo.com/bar.html',
+    nonPersonalizedAds: true,
+  );
+
+  InterstitialAd? _interstitialAd;
+  int _numInterstitialLoadAttempts = 0;
+
+  RewardedAd? _rewardedAd;
+  int _numRewardedLoadAttempts = 0;
+
+  RewardedInterstitialAd? _rewardedInterstitialAd;
+  int _numRewardedInterstitialLoadAttempts = 0;
+  void createInterstitialAd() {
+    // todo chang id admob
+    // todo real ads android : ca-app-pub-1546426480316306/7850543705
+    // todo test ads : ca-app-pub-3940256099942544/1033173712
+    // !ca-app-pub-1546426480316306/7850543705
+    InterstitialAd.load(
+        adUnitId: Platform.isAndroid
+            ? 'ca-app-pub-1546426480316306/9300255383'
+            : 'ca-app-pub-1546426480316306/7850543705',
+        request: request,
+        adLoadCallback: InterstitialAdLoadCallback(
+          onAdLoaded: (InterstitialAd ad) {
+            print('$ad loaded');
+            _interstitialAd = ad;
+            _numInterstitialLoadAttempts = 0;
+            _interstitialAd!.setImmersiveMode(true);
+          },
+          onAdFailedToLoad: (LoadAdError error) {
+            print('InterstitialAd failed to load: $error.');
+            _numInterstitialLoadAttempts += 1;
+            _interstitialAd = null;
+            if (_numInterstitialLoadAttempts < maxFailedLoadAttempts) {
+              createInterstitialAd();
+            }
+          },
+        ));
+  }
+
+  void showInterstitialAd() {
+    if (_interstitialAd == null) {
+      print('Warning: attempt to show interstitial before loaded.');
+      return;
+    }
+    _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (InterstitialAd ad) =>
+          print('ad onAdShowedFullScreenContent.'),
+      onAdDismissedFullScreenContent: (InterstitialAd ad) {
+        print('$ad onAdDismissedFullScreenContent.');
+        ad.dispose();
+        createInterstitialAd();
+      },
+      onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+        print('$ad onAdFailedToShowFullScreenContent: $error');
+        ad.dispose();
+        createInterstitialAd();
+      },
+    );
+    _interstitialAd!.show();
+    _interstitialAd = null;
+  }
+
+  //Ads zone
 
   void _Loadsetting() async {
     String? BaseUrl = dotenv.env['BASE_URL'];
@@ -158,7 +268,42 @@ class _HomePagaeState extends State<HomePagae> {
       setState(() {
         _loading = false;
       });
+      StartAppPlayingCCTV(context);
     } else {}
+  }
+
+  void StartAppPlayingCCTV(
+    context,
+  ) {
+    var name = 'แยกโรงเรียนสามัคคี';
+    var url =
+        'http://183.88.214.137:1935/livecctv/cctvp2c011.stream/playlist.m3u8';
+    var detail = 'แยกโรงเรียนสามัคคี';
+    PlayCCTV(context, name, url, detail);
+
+    //print('play url is  : ' + listdata[index].url);
+    try {
+      BetterPlayerConfiguration betterPlayerConfiguration =
+          BetterPlayerConfiguration(
+              aspectRatio: 16 / 9,
+              fit: BoxFit.fill,
+              fullScreenByDefault: false,
+              autoPlay: true,
+              showPlaceholderUntilPlay: true,
+              autoDetectFullscreenDeviceOrientation: true,
+              looping: true);
+      BetterPlayerDataSource dataSource = BetterPlayerDataSource(
+        BetterPlayerDataSourceType.network,
+        // "https://mtoczko.github.io/hls-test-streams/test-group/playlist.m3u8",
+        url,
+        useAsmsSubtitles: false,
+      );
+      _betterPlayerController =
+          BetterPlayerController(betterPlayerConfiguration);
+      _betterPlayerController.setupDataSource(dataSource);
+    } catch (e) {
+      print(e);
+    }
   }
 
   void LoadingPlayingCCTV(
@@ -196,159 +341,203 @@ class _HomePagaeState extends State<HomePagae> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false,
-      // drawer: LeftMenu(),
-      appBar: AppBar(
-        title: Text('Traffic Camera CCTV'),
-        actions: [
-          Container(
-            child: IconButton(
-                onPressed: () {
-                  //  Get.to(SearchPage());
-                  _Loadsetting();
-                  // print('search page');
-                },
-                icon: Icon(Icons.favorite)),
-          )
-        ],
-      ),
-      body: Container(
-        child: _loading == true
-            ? _LoadingWidget()
-            : Container(
-                child: ListView.separated(
-                    itemBuilder: (context, index) {
-                      return Container(
-                        child: GestureDetector(
-                          onTap: () {
-                            LoadingPlayingCCTV(context, index);
-                          },
-                          child: Card(
-                            semanticContainer: true,
-                            clipBehavior: Clip.antiAliasWithSaveLayer,
-                            child: Container(
-                              height: 200,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                image: DecorationImage(
-                                  image: AssetImage('assets/images/bg.jpg'),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    color: Colors.black38,
-                                  ),
-                                  Container(
+        key: scaffoldKey,
+        drawer: LeftMenu(),
+        resizeToAvoidBottomInset: false,
+        // drawer: LeftMenu(),
+        appBar: AppBar(
+          title: Text('BOX Hightway CCTV'),
+          actions: [
+            // Container(
+            //   child: IconButton(
+            //       onPressed: () {
+            //         //  Get.to(SearchPage());
+            //         //_Loadsetting();
+            //         Get.to(ShowMaps());
+            //       },
+            //       icon: Icon(Icons.favorite)),
+            // )
+          ],
+        ),
+        body: Container(
+          child: _loading == true
+              ? _LoadingWidget()
+              : Column(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        child: ListView.separated(
+                            itemBuilder: (context, index) {
+                              return Container(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    LoadingPlayingCCTV(context, index);
+                                  },
+                                  child: Card(
+                                    semanticContainer: true,
+                                    clipBehavior: Clip.antiAliasWithSaveLayer,
+                                    child: Container(
+                                      height: 200,
                                       width: double.infinity,
-                                      height: double.infinity,
-                                      child: Align(
-                                        alignment: Alignment.topRight,
-                                        child: Container(
-                                          margin: EdgeInsets.only(
-                                              right: 15, top: 10),
-                                          height: 10,
-                                          width: 10,
-                                          decoration: BoxDecoration(
-                                              color: Colors.green,
-                                              shape: BoxShape.circle),
+                                      decoration: BoxDecoration(
+                                        image: DecorationImage(
+                                          image: AssetImage(
+                                              'assets/images/bg.jpg'),
+                                          fit: BoxFit.cover,
                                         ),
-                                      )),
-                                  Container(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.start,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          margin:
-                                              EdgeInsets.only(top: 5, left: 10),
-                                          child: Card(
-                                            elevation: 0,
-                                            color: Colors.transparent,
-                                            child: Text(
-                                              listdata[index].name,
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 1,
-                                              softWrap: false,
-                                              style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 18),
+                                      ),
+                                      child: Stack(
+                                        children: [
+                                          Container(
+                                            color: Colors.black38,
+                                          ),
+                                          Container(
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                              child: Align(
+                                                alignment: Alignment.topRight,
+                                                child: Container(
+                                                  margin: EdgeInsets.only(
+                                                      right: 15, top: 10),
+                                                  height: 10,
+                                                  width: 10,
+                                                  decoration: BoxDecoration(
+                                                      color: Colors.green,
+                                                      shape: BoxShape.circle),
+                                                ),
+                                              )),
+                                          Container(
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Container(
+                                                  margin: EdgeInsets.only(
+                                                      top: 5, left: 10),
+                                                  child: Card(
+                                                    elevation: 0,
+                                                    color: Colors.transparent,
+                                                    child: Text(
+                                                      listdata[index].name,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      maxLines: 1,
+                                                      softWrap: false,
+                                                      style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 18),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Container(
+                                                  margin: EdgeInsets.only(
+                                                      top: 0, left: 10),
+                                                  child: Card(
+                                                    elevation: 0,
+                                                    color: Colors.transparent,
+                                                    child: Text(
+                                                      listdata[index].detail,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      maxLines: 1,
+                                                      softWrap: false,
+                                                      style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 14),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Container(
+                                                  margin: EdgeInsets.only(
+                                                      top: 0, left: 10),
+                                                  child: Card(
+                                                    elevation: 0,
+                                                    color: Colors.transparent,
+                                                    child: Text(
+                                                      listdata[index].provine,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      maxLines: 1,
+                                                      softWrap: false,
+                                                      style: TextStyle(
+                                                          color: Colors.white60,
+                                                          fontSize: 14),
+                                                    ),
+                                                  ),
+                                                )
+                                              ],
                                             ),
                                           ),
-                                        ),
-                                        Container(
-                                          margin:
-                                              EdgeInsets.only(top: 0, left: 10),
-                                          child: Card(
-                                            elevation: 0,
-                                            color: Colors.transparent,
-                                            child: Text(
-                                              listdata[index].detail,
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 1,
-                                              softWrap: false,
-                                              style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 14),
+                                          Container(
+                                            height: double.infinity,
+                                            child: Center(
+                                              child: IconButton(
+                                                  onPressed: () {
+                                                    LoadingPlayingCCTV(
+                                                        context, index);
+                                                  },
+                                                  icon: Icon(
+                                                    Icons.play_circle_fill,
+                                                    color: Colors.white,
+                                                    size: 32,
+                                                  )),
                                             ),
-                                          ),
-                                        ),
-                                        Container(
-                                          margin:
-                                              EdgeInsets.only(top: 0, left: 10),
-                                          child: Card(
-                                            elevation: 0,
-                                            color: Colors.transparent,
-                                            child: Text(
-                                              listdata[index].provine,
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 1,
-                                              softWrap: false,
-                                              style: TextStyle(
-                                                  color: Colors.white60,
-                                                  fontSize: 14),
-                                            ),
-                                          ),
-                                        )
-                                      ],
+                                          )
+                                        ],
+                                      ),
                                     ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10.0),
+                                    ),
+                                    elevation: 5,
+                                    margin: EdgeInsets.all(10),
                                   ),
-                                  Container(
-                                    height: double.infinity,
-                                    child: Center(
-                                      child: IconButton(
-                                          onPressed: () {
-                                            LoadingPlayingCCTV(context, index);
-                                          },
-                                          icon: Icon(
-                                            Icons.play_circle_fill,
-                                            color: Colors.white,
-                                            size: 32,
-                                          )),
-                                    ),
-                                  )
-                                ],
-                              ),
+                                ),
+                              );
+                            },
+                            separatorBuilder: (context, index) {
+                              return Container();
+                            },
+                            itemCount: listdata.length),
+                      ),
+                    ),
+                    _isBannerAdReady == true
+                        ? Container(
+                            height: 80,
+                            child: Container(
+                              width: _bannerAd.size.width.toDouble(),
+                              height: _bannerAd.size.height.toDouble(),
+                              child: AdWidget(ad: _bannerAd),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10.0),
-                            ),
-                            elevation: 5,
-                            margin: EdgeInsets.all(10),
-                          ),
-                        ),
-                      );
-                    },
-                    separatorBuilder: (context, index) {
-                      return Container();
-                    },
-                    itemCount: listdata.length),
-              ),
-      ),
-    );
+                          )
+                        : Container()
+                  ],
+                ),
+        ),
+        floatingActionButton: Padding(
+          padding: _isBannerAdReady == true
+              ? EdgeInsets.only(bottom: 100)
+              : EdgeInsets.only(bottom: 0),
+          child: FloatingActionButton.extended(
+              onPressed: () {
+                Get.to(ShowMaps());
+              },
+              label: Container(
+                child: Row(
+                  children: [
+                    Icon(
+                      FontAwesomeIcons.locationDot,
+                      color: Colors.red,
+                    ),
+                    Container(
+                        margin: EdgeInsets.only(left: 5),
+                        child: Text('แสดงในแผนที่'))
+                  ],
+                ),
+              )),
+        ));
   }
 
   void PlayCCTV(context, String name, String url, String detail) {
